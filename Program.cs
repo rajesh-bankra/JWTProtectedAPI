@@ -60,10 +60,7 @@ app.UseAuthorization();
 
 // Use Swagger
 app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "API V1");
-});
+app.UseSwaggerUI();
 
 app.MapControllers();
 
