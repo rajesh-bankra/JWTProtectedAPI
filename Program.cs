@@ -1,3 +1,4 @@
+using JWTProtectedAPI;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -9,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.SaveToken = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = false,
@@ -18,6 +20,30 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"], // your issuer
             ValidAudience = builder.Configuration["Jwt:Audience"], // your audience
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])) // your secret key
+        };
+        // Optional: You can set an event handler to catch specific errors (like invalid token).
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                // This is where you can catch authentication errors (invalid or expired token)
+                if (context.Exception is SecurityTokenExpiredException)
+                {
+                    context.Response.StatusCode = 401;
+                    context.Response.ContentType = "application/json";
+                    return context.Response.WriteAsync("Token has expired.");
+                }
+                else if (context.Exception is SecurityTokenInvalidSignatureException)
+                {
+                    context.Response.StatusCode = 401;
+                    context.Response.ContentType = "application/json";
+                    return context.Response.WriteAsync("Invalid token signature.");
+                }
+
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "application/json";
+                return context.Response.WriteAsync("Authentication failed.");
+            }
         };
     });
 
@@ -54,6 +80,7 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
+app.UseMiddleware<JwtLoggingMiddleware>(); // Add this line before authentication middleware
 // Use authentication and authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
