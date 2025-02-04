@@ -2,6 +2,7 @@ using JWTProtectedAPI;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,7 +27,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnAuthenticationFailed = context =>
             {
-                // This is where you can catch authentication errors (invalid or expired token)
                 if (context.Exception is SecurityTokenExpiredException)
                 {
                     context.Response.StatusCode = 401;
@@ -39,6 +39,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     context.Response.ContentType = "application/json";
                     return context.Response.WriteAsync("Invalid token signature.");
                 }
+                else if (context.Exception is SecurityTokenArgumentException)
+                {
+                    context.Response.StatusCode = 401;
+                    context.Response.ContentType = "application/json";
+                    return context.Response.WriteAsync("Invalid token argument.");
+                }
+
 
                 context.Response.StatusCode = 401;
                 context.Response.ContentType = "application/json";
@@ -51,22 +58,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddSwaggerGen(options =>
 {
     // Add Security definition for JWT Bearer
-    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'",
         Name = "Authorization",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey
     });
 
-    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            new OpenApiSecurityScheme
             {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                Reference = new OpenApiReference
                 {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 }
             },
@@ -75,12 +82,19 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+
 // Add controllers
 builder.Services.AddControllers();
 
 var app = builder.Build();
+// Add Middleware to the pipeline
+app.UseMiddleware<RequestLoggingMiddleware>();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseMiddleware<SanitizeInputMiddleware>();
 
-app.UseMiddleware<JwtLoggingMiddleware>(); // Add this line before authentication middleware
+// Add JwtLoggingMiddleware (make sure it's not interfering with authentication)
+//app.UseMiddleware<JwtLoggingMiddleware>(); // Add this line before authentication middleware
+
 // Use authentication and authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
