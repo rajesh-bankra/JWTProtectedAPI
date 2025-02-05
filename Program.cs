@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using WorkerServiceDemo;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -86,6 +87,10 @@ builder.Services.AddSwaggerGen(options =>
 // Add controllers
 builder.Services.AddControllers();
 
+// Register the Worker Service
+builder.Services.AddHostedService<Worker>();
+
+builder.Services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
 var app = builder.Build();
 // Add Middleware to the pipeline
 app.UseMiddleware<RequestLoggingMiddleware>();
